@@ -1,6 +1,399 @@
-import { Board } from './board.js';
-import { ChessUtils } from './utils.js';
+// ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
+const ChessUtils = {
+    notationToIndices: (notation) => {
+        const col = notation.charCodeAt(0) - 97;
+        const row = 8 - parseInt(notation[1]);
+        return { row, col };
+    },
+    
+    indicesToNotation: (row, col) => {
+        const file = String.fromCharCode(97 + col);
+        const rank = 8 - row;
+        return `${file}${rank}`;
+    },
+    
+    isValidPosition: (row, col) => {
+        return row >= 0 && row < 8 && col >= 0 && col < 8;
+    },
+    
+    PIECE_SYMBOLS: {
+        white: {
+            king: '♔',
+            queen: '♕',
+            rook: '♖',
+            bishop: '♗',
+            knight: '♘',
+            pawn: '♙'
+        },
+        black: {
+            king: '♚',
+            queen: '♛',
+            rook: '♜',
+            bishop: '♝',
+            knight: '♞',
+            pawn: '♟'
+        }
+    },
+    
+    getPieceSymbol: (piece) => {
+        if (!piece) return '';
+        return ChessUtils.PIECE_SYMBOLS[piece.color][piece.type];
+    }
+};
 
+// ==================== КЛАССЫ ФИГУР ====================
+class Piece {
+    constructor(color, type, position) {
+        this.color = color;
+        this.type = type;
+        this.position = position;
+    }
+    
+    getValidMoves(board, currentPosition) {
+        return [];
+    }
+    
+    clone() {
+        return new Piece(this.color, this.type, { ...this.position });
+    }
+}
+
+class Pawn extends Piece {
+    constructor(color, position) {
+        super(color, 'pawn', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const direction = this.color === 'white' ? -1 : 1;
+        const startRow = this.color === 'white' ? 6 : 1;
+        const { row, col } = currentPosition;
+        
+        const newRow = row + direction;
+        if (ChessUtils.isValidPosition(newRow, col) && !board.getPiece(newRow, col)) {
+            moves.push({ row: newRow, col });
+            
+            const twoStepsRow = row + (direction * 2);
+            if (row === startRow && !board.getPiece(twoStepsRow, col) && !board.getPiece(newRow, col)) {
+                moves.push({ row: twoStepsRow, col });
+            }
+        }
+        
+        const captureCols = [col - 1, col + 1];
+        for (const captureCol of captureCols) {
+            const captureRow = row + direction;
+            if (ChessUtils.isValidPosition(captureRow, captureCol)) {
+                const targetPiece = board.getPiece(captureRow, captureCol);
+                if (targetPiece && targetPiece.color !== this.color) {
+                    moves.push({ row: captureRow, col: captureCol });
+                }
+            }
+        }
+        
+        return moves;
+    }
+}
+
+class Rook extends Piece {
+    constructor(color, position) {
+        super(color, 'rook', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        
+        for (const [rowDir, colDir] of directions) {
+            let newRow = currentPosition.row + rowDir;
+            let newCol = currentPosition.col + colDir;
+            
+            while (ChessUtils.isValidPosition(newRow, newCol)) {
+                const piece = board.getPiece(newRow, newCol);
+                if (!piece) {
+                    moves.push({ row: newRow, col: newCol });
+                } else {
+                    if (piece.color !== this.color) {
+                        moves.push({ row: newRow, col: newCol });
+                    }
+                    break;
+                }
+                newRow += rowDir;
+                newCol += colDir;
+            }
+        }
+        
+        return moves;
+    }
+}
+
+class Knight extends Piece {
+    constructor(color, position) {
+        super(color, 'knight', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const knightMoves = [
+            [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+            [1, -2], [1, 2], [2, -1], [2, 1]
+        ];
+        
+        for (const [rowMove, colMove] of knightMoves) {
+            const newRow = currentPosition.row + rowMove;
+            const newCol = currentPosition.col + colMove;
+            
+            if (ChessUtils.isValidPosition(newRow, newCol)) {
+                const piece = board.getPiece(newRow, newCol);
+                if (!piece || piece.color !== this.color) {
+                    moves.push({ row: newRow, col: newCol });
+                }
+            }
+        }
+        
+        return moves;
+    }
+}
+
+class Bishop extends Piece {
+    constructor(color, position) {
+        super(color, 'bishop', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+        
+        for (const [rowDir, colDir] of directions) {
+            let newRow = currentPosition.row + rowDir;
+            let newCol = currentPosition.col + colDir;
+            
+            while (ChessUtils.isValidPosition(newRow, newCol)) {
+                const piece = board.getPiece(newRow, newCol);
+                if (!piece) {
+                    moves.push({ row: newRow, col: newCol });
+                } else {
+                    if (piece.color !== this.color) {
+                        moves.push({ row: newRow, col: newCol });
+                    }
+                    break;
+                }
+                newRow += rowDir;
+                newCol += colDir;
+            }
+        }
+        
+        return moves;
+    }
+}
+
+class Queen extends Piece {
+    constructor(color, position) {
+        super(color, 'queen', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const directions = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1],           [0, 1],
+            [1, -1],  [1, 0],  [1, 1]
+        ];
+        
+        for (const [rowDir, colDir] of directions) {
+            let newRow = currentPosition.row + rowDir;
+            let newCol = currentPosition.col + colDir;
+            
+            while (ChessUtils.isValidPosition(newRow, newCol)) {
+                const piece = board.getPiece(newRow, newCol);
+                if (!piece) {
+                    moves.push({ row: newRow, col: newCol });
+                } else {
+                    if (piece.color !== this.color) {
+                        moves.push({ row: newRow, col: newCol });
+                    }
+                    break;
+                }
+                newRow += rowDir;
+                newCol += colDir;
+            }
+        }
+        
+        return moves;
+    }
+}
+
+class King extends Piece {
+    constructor(color, position) {
+        super(color, 'king', position);
+    }
+    
+    getValidMoves(board, currentPosition) {
+        const moves = [];
+        const kingMoves = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1],           [0, 1],
+            [1, -1],  [1, 0],  [1, 1]
+        ];
+        
+        for (const [rowMove, colMove] of kingMoves) {
+            const newRow = currentPosition.row + rowMove;
+            const newCol = currentPosition.col + colMove;
+            
+            if (ChessUtils.isValidPosition(newRow, newCol)) {
+                const piece = board.getPiece(newRow, newCol);
+                if (!piece || piece.color !== this.color) {
+                    moves.push({ row: newRow, col: newCol });
+                }
+            }
+        }
+        
+        return moves;
+    }
+}
+
+// ==================== КЛАСС ДОСКИ ====================
+class Board {
+    constructor() {
+        this.cells = this.initializeBoard();
+        this.history = [];
+    }
+    
+    initializeBoard() {
+        const board = [];
+        for (let row = 0; row < 8; row++) {
+            board[row] = [];
+            for (let col = 0; col < 8; col++) {
+                board[row][col] = null;
+            }
+        }
+        return board;
+    }
+    
+    setupInitialPosition() {
+        this.cells = this.initializeBoard();
+        
+        for (let col = 0; col < 8; col++) {
+            this.cells[1][col] = new Pawn('black', { row: 1, col });
+            this.cells[6][col] = new Pawn('white', { row: 6, col });
+        }
+        
+        const backRow = [
+            Rook, Knight, Bishop, Queen, King, Bishop, Knight, Rook
+        ];
+        
+        for (let col = 0; col < 8; col++) {
+            const BlackPieceClass = backRow[col];
+            const WhitePieceClass = backRow[col];
+            this.cells[0][col] = new BlackPieceClass('black', { row: 0, col });
+            this.cells[7][col] = new WhitePieceClass('white', { row: 7, col });
+        }
+    }
+    
+    getPiece(row, col) {
+        if (!ChessUtils.isValidPosition(row, col)) return null;
+        return this.cells[row][col];
+    }
+    
+    setPiece(row, col, piece) {
+        if (piece) {
+            piece.position = { row, col };
+        }
+        this.cells[row][col] = piece;
+    }
+    
+    movePiece(fromRow, fromCol, toRow, toCol) {
+        const piece = this.getPiece(fromRow, fromCol);
+        if (!piece) return false;
+        
+        const capturedPiece = this.getPiece(toRow, toCol);
+        
+        this.history.push({
+            from: { row: fromRow, col: fromCol },
+            to: { row: toRow, col: toCol },
+            piece: piece,
+            captured: capturedPiece
+        });
+        
+        this.setPiece(toRow, toCol, piece);
+        this.setPiece(fromRow, fromCol, null);
+        
+        if (piece.type === 'pawn' && (toRow === 0 || toRow === 7)) {
+            this.promotePawn(toRow, toCol, piece.color);
+        }
+        
+        return true;
+    }
+    
+    promotePawn(row, col, color) {
+        this.setPiece(row, col, new Queen(color, { row, col }));
+    }
+    
+    undoMove() {
+        if (this.history.length === 0) return false;
+        
+        const lastMove = this.history.pop();
+        
+        this.setPiece(lastMove.from.row, lastMove.from.col, lastMove.piece);
+        this.setPiece(lastMove.to.row, lastMove.to.col, lastMove.captured);
+        
+        return true;
+    }
+    
+    getAllPieces() {
+        const pieces = [];
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = this.cells[row][col];
+                if (piece) {
+                    pieces.push({
+                        piece,
+                        position: { row, col }
+                    });
+                }
+            }
+        }
+        return pieces;
+    }
+    
+    clone() {
+        const newBoard = new Board();
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const piece = this.cells[row][col];
+                if (piece) {
+                    let newPiece;
+                    switch(piece.type) {
+                        case 'pawn': newPiece = new Pawn(piece.color, { row, col }); break;
+                        case 'rook': newPiece = new Rook(piece.color, { row, col }); break;
+                        case 'knight': newPiece = new Knight(piece.color, { row, col }); break;
+                        case 'bishop': newPiece = new Bishop(piece.color, { row, col }); break;
+                        case 'queen': newPiece = new Queen(piece.color, { row, col }); break;
+                        case 'king': newPiece = new King(piece.color, { row, col }); break;
+                    }
+                    newBoard.setPiece(row, col, newPiece);
+                }
+            }
+        }
+        return newBoard;
+    }
+    
+    isSquareAttacked(row, col, color) {
+        const oppositeColor = color === 'white' ? 'black' : 'white';
+        const pieces = this.getAllPieces();
+        
+        for (const { piece, position } of pieces) {
+            if (piece.color === oppositeColor) {
+                const moves = piece.getValidMoves(this, position);
+                if (moves.some(move => move.row === row && move.col === col)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+// ==================== ОСНОВНОЙ КЛАСС ИГРЫ ====================
 class Game {
     constructor() {
         this.board = new Board();
