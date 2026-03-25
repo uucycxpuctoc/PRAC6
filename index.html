@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>DOM Chess - Шахматы на JavaScript</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="game-container">
+            <div class="info-panel">
+                <div class="player-turn">
+                    <div class="turn-indicator">
+                        <span class="turn-text">Ход:</span>
+                        <span class="current-player">Белые</span>
+                    </div>
+                    <div class="turn-color-indicator white-turn"></div>
+                </div>
+                <div class="game-controls">
+                    <button id="newGameBtn" class="control-btn">🔄 Новая игра</button>
+                    <button id="undoBtn" class="control-btn">↩️ Отменить ход</button>
+                </div>
+                <div class="game-status">
+                    <div class="status-message"></div>
+                </div>
+            </div>
+            <div id="chessBoard" class="chess-board"></div>
+            <div class="captured-pieces">
+                <div class="captured-title">Взятые фигуры</div>
+                <div class="captured-white"></div>
+                <div class="captured-black"></div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="js/game.js"></script>
+</body>
+</html>
